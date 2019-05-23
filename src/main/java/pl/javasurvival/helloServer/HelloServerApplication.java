@@ -1,5 +1,6 @@
 package pl.javasurvival.helloServer;
 
+import io.vavr.collection.List;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.HttpHandler;
 import org.springframework.http.server.reactive.ReactorHttpHandlerAdapter;
@@ -12,8 +13,6 @@ import reactor.ipc.netty.http.server.HttpServer;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.springframework.web.reactive.function.BodyInserters.fromObject;
 import static org.springframework.web.reactive.function.server.RequestPredicates.*;
@@ -22,11 +21,11 @@ import static org.springframework.web.reactive.function.server.RouterFunctions.r
 
 public class HelloServerApplication {
 
-	private final List<Message> messages = new ArrayList<>();
+	private List<Message> messages = List.empty();
 
 	private HelloServerApplication() {
-		messages.add(new Message("ale tu fajnie", "Pitagoras"));
-		messages.add(new Message("mylisz sie Greku", "Chopin"));
+		addMessage(new Message("ale tu fajnie", "Pitagoras"));
+		addMessage(new Message("mylisz sie Greku", "Chopin"));
 	}
 
 	public static void main(String[] args) {
@@ -54,20 +53,28 @@ public class HelloServerApplication {
 			Mono<Message> postedMessage = request.bodyToMono(Message.class);
 			return postedMessage.flatMap(
 					message -> {
-						messages.add(message);
+						addMessage(message);
 						return ServerResponse.ok()
 								.contentType(MediaType.APPLICATION_JSON)
-								.body(fromObject(messages));
+								.body(fromObject(getMessages().toJavaList()));
 					}
 			);
 		};
+	}
+
+	private synchronized void addMessage(Message message) {
+		messages = messages.append(message);
+	}
+
+	private synchronized List<Message> getMessages() {
+		return messages;
 	}
 
 	private HandlerFunction<ServerResponse> renderMessages() {
 		return request -> {
 			return ServerResponse.ok()
 					.contentType(MediaType.APPLICATION_JSON)
-					.body(fromObject(messages));
+					.body(fromObject(messages.toJavaList()));
 		};
 	}
 
